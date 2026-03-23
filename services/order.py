@@ -19,27 +19,30 @@ def create_order(
         parsed_date = datetime.strptime(date, "%Y-%m-%d %H:%M")
         Order.objects.filter(id=order.id).update(created_at=parsed_date)
 
+    ticket_objs = []
     session_ids = {item["movie_session"] for item in tickets}
     existing_sessions = set(
         MovieSession.objects.filter(
             id__in=session_ids).values_list("id", flat=True)
     )
 
-    for session_id in session_ids:
-        if session_id not in existing_sessions:
-            raise Exception(f"MovieSession {session_id} does not exist")
+    for item in tickets:
+        if item["movie_session"] not in existing_sessions:
+            raise Exception(
+                f"MovieSession {item['movie_session']} does not exist"
+            )
 
-    ticket_objs = [
-        Ticket(
+        ticket = Ticket(
             row=item["row"],
             seat=item["seat"],
             order=order,
             movie_session_id=item["movie_session"]
         )
-        for item in tickets
-    ]
 
-    # масова вставка
+        ticket.full_clean()
+
+        ticket_objs.append(ticket)
+
     Ticket.objects.bulk_create(ticket_objs)
 
     return order
