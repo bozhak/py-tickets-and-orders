@@ -8,31 +8,44 @@ from django.db.models import QuerySet
 @transaction.atomic
 def create_order(
         tickets: list[dict],
-        username: str | int,
-        date: datetime = None
+        username: str,
+        date: str = None
 ) -> Order:
-
     user = get_user_model().objects.get(username=username)
 
     order = Order.objects.create(user=user)
 
     if date:
-        order.created_at = date
-        order.save(update_fields=["created_at"])
+        parsed_date = datetime.strptime(date, "%Y-%m-%d %H:%M")
+        Order.objects.filter(id=order.id).update(created_at=parsed_date)
 
-    for ticket in tickets:
-        movie_session = MovieSession.objects.get(id=ticket["movie_session"])
-        Ticket.objects.create(
-            row=ticket["row"],
-            seat=ticket["seat"],
-            movie_session=movie_session,
-            order=order
+    session_ids = {item["movie_session"] for item in tickets}
+    existing_sessions = set(
+        MovieSession.objects.filter(
+            id__in=session_ids).values_list("id", flat=True)
+    )
+
+    for session_id in session_ids:
+        if session_id not in existing_sessions:
+            raise Exception(f"MovieSession {session_id} does not exist")
+
+    ticket_objs = [
+        Ticket(
+            row=item["row"],
+            seat=item["seat"],
+            order=order,
+            movie_session_id=item["movie_session"]
         )
+        for item in tickets
+    ]
+
+    # масова вставка
+    Ticket.objects.bulk_create(ticket_objs)
 
     return order
 
 
-def get_orders(username: str = None) -> QuerySet:
+def get_orders(username: str = None) -> QuerySet[Order]:
     queryset = Order.objects.all()
 
     if username:

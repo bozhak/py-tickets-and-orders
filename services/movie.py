@@ -1,5 +1,5 @@
 from django.db.models import QuerySet
-from db.models import Movie, Ticket
+from db.models import Movie
 from django.db import transaction
 
 
@@ -7,7 +7,7 @@ def get_movies(
     genres_ids: list[int] = None,
     actors_ids: list[int] = None,
     title: str = None
-) -> QuerySet:
+) -> QuerySet[Movie]:
     queryset = Movie.objects.all()
 
     if title:
@@ -43,11 +43,3 @@ def create_movie(
         movie.actors.set(actors_ids)
 
     return movie
-
-
-def get_taken_seats(movie_session_id: int) -> list:
-    return list(
-        Ticket.objects
-        .filter(movie_session_id=movie_session_id)
-        .values("row", "seat")
-    )
